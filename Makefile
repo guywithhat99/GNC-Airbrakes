@@ -52,7 +52,7 @@ SRC_INC_FLAGS := $(addprefix -I,$(SRC_INC_DIRS))
 INCLUDE_FLAGS := $(TEENSY_INC_FLAGS) $(LIBRARY_INC_FLAGS) $(SRC_INC_FLAGS)
 
 # Compiler flags specific to Teensy 4.1
-TEENSY4_FLAGS = -DF_CPU=600000000 -DUSB_CUSTOM -DLAYOUT_US_ENGLISH -D__IMXRT1062__ -DTEENSYDUINO=159 -DARDUINO_TEENSY41 -DARDUINO=10813 -DFIRMWARE
+TEENSY4_FLAGS = -DF_CPU=600000000 -DUSB_SERIAL -DLAYOUT_US_ENGLISH -D__IMXRT1062__ -DTEENSYDUINO=159 -DARDUINO_TEENSY41 -DARDUINO=10813 -DFIRMWARE
 
 # CPU flags to optimize code for the Teensy processor
 CPU_CFLAGS = -mcpu=cortex-m7 -mfloat-abi=hard -mfpu=fpv5-d16 -mthumb
@@ -89,11 +89,11 @@ LINKING_FLAGS = -Wl,--gc-sections,--relax,-Tteensy4/imxrt1062_t41.ld,--print-mem
 # Set the Arduino path based on the detected operating system
 ifeq ($(UNAME),Darwin)
  ARDUINO_PATH = $(abspath $(HOME)/Library/Arduino15)
- $(info We've detected you are using a Mac! Consult God if this breaks.)
+ $(info Detected MacOS! Fancy.)
 endif
 ifeq ($(UNAME),Linux)
  ARDUINO_PATH = $(abspath $(HOME)/.arduino15)
- $(info We've detected you're on Linux! Nerd.)
+ $(info Detected Linux! Nerd.)
 endif
 
 # Base arm-none-eabi and Teensyduino tool paths
