@@ -33,11 +33,10 @@ void setup() {
 }
 
 void loop() {
-    float gyro_x, gyro_y, gyro_z;
+  float gyro_x, gyro_y, gyro_z;
   float accel_x, accel_y, accel_z;
   float mag_x, mag_y, mag_z;
   float quat_w, quat_x, quat_y, quat_z;
-  char sensor_string_buff[128];
 
   // Must call this often in main loop -- updates the sensor values
   icm20948.task();
@@ -45,28 +44,37 @@ void loop() {
   if (icm20948.gyroDataIsReady())
   {
     icm20948.readGyroData(&gyro_x, &gyro_y, &gyro_z);
-    sprintf(sensor_string_buff, "Gyro (deg/s): [%f,%f,%f]", gyro_x, gyro_y, gyro_z);
-    Serial.println(sensor_string_buff);
+    Serial.print("Gyro (deg/s): [");
+    Serial.print(gyro_x); Serial.print(",");
+    Serial.print(gyro_y); Serial.print(",");
+    Serial.print(gyro_z); Serial.println("]");
   }
 
   if (icm20948.accelDataIsReady())
   {
     icm20948.readAccelData(&accel_x, &accel_y, &accel_z);
-    sprintf(sensor_string_buff, "Accel (g): [%f,%f,%f]", accel_x, accel_y, accel_z);
-    Serial.println(sensor_string_buff);
+    Serial.print("Accel (g): [");
+    Serial.print(accel_x); Serial.print(",");
+    Serial.print(accel_y); Serial.print(",");
+    Serial.print(accel_z); Serial.println("]");
   }
 
   if (icm20948.magDataIsReady())
   {
     icm20948.readMagData(&mag_x, &mag_y, &mag_z);
-    sprintf(sensor_string_buff, "Mag (uT): [%f,%f,%f]", mag_x, mag_y, mag_z);
-    Serial.println(sensor_string_buff);
+    Serial.print("Mag (uT): [");
+    Serial.print(mag_x); Serial.print(",");
+    Serial.print(mag_y); Serial.print(",");
+    Serial.print(mag_z); Serial.println("]");
   }
 
   if (icm20948.quatDataIsReady())
   {
     icm20948.readQuatData(&quat_w, &quat_x, &quat_y, &quat_z);
-    sprintf(sensor_string_buff, "Quat (deg): [%f,%f,%f,%f]", quat_w, quat_x, quat_y, quat_z);
-    Serial.println(sensor_string_buff);
+    Serial.print("Quat: [");
+    Serial.print(quat_w); Serial.print(",");
+    Serial.print(quat_x); Serial.print(",");
+    Serial.print(quat_y); Serial.print(",");
+    Serial.print(quat_z); Serial.println("]");
   }
 }
