@@ -6,10 +6,11 @@ class sd_log {
 public:
     sd_log();
     void init();
-    void logIMUData(const IMUData& data);
+    void logGyroData(const Vec3& data);
 private:
-    File logFile;
-}
+    //File logFile;
+
+};
 
 
 #endif /* sd_log_file_hpp */
