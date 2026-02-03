@@ -5,14 +5,20 @@
 
 #include <Arduino.h>
 #include "imu.hpp"
+#include "barometer.hpp"
 
 IMU imu;
+Barometer barometer;
 
 void setup() {
     Serial.begin(115200);
     delay(500);
 
     imu.init(IMU::defaultConfig());
+
+    if (!barometer.init(Barometer::defaultConfig())) {
+        Serial.println("BMP388 init failed!");
+    }
 
     Serial.println("GNC-Airbrakes firmware initialized");
 }
@@ -51,5 +57,12 @@ void loop() {
         Serial.print(quat.x); Serial.print(",");
         Serial.print(quat.y); Serial.print(",");
         Serial.print(quat.z); Serial.println("]");
+    }
+
+    if (barometer.update()) {
+        BarometerData data = barometer.readAll();
+        Serial.print("Temp (C): "); Serial.println(data.temperature);
+        Serial.print("Pressure (hPa): "); Serial.println(data.pressure / 100.0);
+        Serial.print("Altitude (m): "); Serial.println(data.altitude);
     }
 }
