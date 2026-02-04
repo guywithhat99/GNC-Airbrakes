@@ -13,7 +13,7 @@ struct sd_log::Impl {
     Vec3 lastGyro;
     Vec3 lastAccel;
 
-    // Flags to track whether each sensor has updated this cycle
+    // Flags to track whether each sensor has updated at least once
     bool magReady = false;
     bool gyroReady = false;
     bool accelReady = false;
@@ -29,17 +29,24 @@ sd_log::sd_log() : pimpl(new Impl) {}
 // -----------------------------------------------------------------------------
 void sd_log::init() {
     if (!SD.begin(BUILTIN_SDCARD)) {
-        return; // SD card not found or failed to initialize
+        return;
     }
 
-    pimpl->logFile = SD.open("imu.csv", FILE_WRITE);
+    char filename[32];
+    int index = 0;
+
+    // Find the first filename of format imu_XXXX.csv that hasn't been claimed
+    do {
+        snprintf(filename, sizeof(filename), "imu_%04d.csv", index++);
+    } while (SD.exists(filename));
+
+    pimpl->logFile = SD.open(filename, FILE_WRITE);
     if (!pimpl->logFile) {
         return; // File could not be opened
     }
 
     pimpl->initialized = true;
 
-    // Write CSV header for grouped IMU data
     pimpl->logFile.println(
         "timestamp_us,"
         "mag_x,mag_y,mag_z,"
@@ -49,7 +56,7 @@ void sd_log::init() {
 }
 
 // -----------------------------------------------------------------------------
-// Store magnetometer data (do NOT write to SD yet)
+// Store magnetometer data (does NOT write to SD yet)
 // -----------------------------------------------------------------------------
 void sd_log::logMagData(const Vec3& v) {
     if (!pimpl->initialized) return;
@@ -79,31 +86,32 @@ void sd_log::logAccelData(const Vec3& v) {
 }
 
 // -----------------------------------------------------------------------------
-// NEW FUNCTION: write a combined row once all three sensors have updated
+// Write a combined row using the *latest available* values.
+// Missing readings simply reuse the last known value.
 // -----------------------------------------------------------------------------
 void sd_log::writeCombinedRow() {
     if (!pimpl->initialized) return;
 
-    // Only write when all three sensor readings are available
-    if (pimpl->magReady && pimpl->gyroReady && pimpl->accelReady) {
-
-        uint32_t t = micros(); // timestamp in microseconds
-
-        // Write one complete IMU snapshot
-        pimpl->logFile.printf(
-            "%lu,"
-            "%f,%f,%f,"      // mag
-            "%f,%f,%f,"      // gyro
-            "%f,%f,%f\n",    // accel
-            t,
-            pimpl->lastMag.x,   pimpl->lastMag.y,   pimpl->lastMag.z,
-            pimpl->lastGyro.x,  pimpl->lastGyro.y,  pimpl->lastGyro.z,
-            pimpl->lastAccel.x, pimpl->lastAccel.y, pimpl->lastAccel.z
-        );
-
-        // Reset flags for the next IMU cycle
-        pimpl->magReady = false;
-        pimpl->gyroReady = false;
-        pimpl->accelReady = false;
+    // Only block logging until each sensor has produced *at least one* reading.
+    if (!(pimpl->magReady && pimpl->gyroReady && pimpl->accelReady)) {
+        return;
     }
+
+    uint32_t t = micros(); // timestamp in microseconds
+
+    // Write one complete IMU snapshot
+    pimpl->logFile.printf(
+        "%lu,"
+        "%f,%f,%f,"      // mag
+        "%f,%f,%f,"      // gyro
+        "%f,%f,%f\n",    // accel
+        t,
+        pimpl->lastMag.x,   pimpl->lastMag.y,   pimpl->lastMag.z,
+        pimpl->lastGyro.x,  pimpl->lastGyro.y,  pimpl->lastGyro.z,
+        pimpl->lastAccel.x, pimpl->lastAccel.y, pimpl->lastAccel.z
+    );
+
+    // IMPORTANT:
+    // We do NOT reset the ready flags.
+    // This allows reuse of last known values if a sensor doesn't update next cycle.
 }
