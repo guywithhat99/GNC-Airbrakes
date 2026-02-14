@@ -30,10 +30,9 @@ class SensorData:
 
     def __init__(self):
         self.lock = threading.Lock()
-        self.gyro = [0.0, 0.0, 0.0]
-        self.accel = [0.0, 0.0, 0.0]
-        self.mag = [0.0, 0.0, 0.0]
-        self.quat = [1.0, 0.0, 0.0, 0.0]  # w, x, y, z
+        self.gyro = [0.0, 0.0, 0.0]   # rad/s
+        self.accel = [0.0, 0.0, 0.0]  # m/s^2
+        self.mag = [0.0, 0.0, 0.0]    # uT
         self.temperature = 0.0
         self.pressure = 0.0
         self.altitude = 0.0
@@ -46,10 +45,9 @@ class SerialReader:
     """Background thread that reads and parses Teensy serial output."""
 
     PATTERNS = {
-        "gyro": re.compile(r"Gyro \(deg/s\): \[([^,]+),([^,]+),([^\]]+)\]"),
-        "accel": re.compile(r"Accel \(g\): \[([^,]+),([^,]+),([^\]]+)\]"),
+        "gyro": re.compile(r"Gyro \(rad/s\): \[([^,]+),([^,]+),([^\]]+)\]"),
+        "accel": re.compile(r"Accel \(m/s\^2\): \[([^,]+),([^,]+),([^\]]+)\]"),
         "mag": re.compile(r"Mag \(uT\): \[([^,]+),([^,]+),([^\]]+)\]"),
-        "quat": re.compile(r"Quat: \[([^,]+),([^,]+),([^,]+),([^\]]+)\]"),
         "temp": re.compile(r"Temp \(C\): ([0-9.\-]+)"),
         "pressure": re.compile(r"Pressure \(hPa\): ([0-9.\-]+)"),
         "altitude": re.compile(r"Altitude \(m\): ([0-9.\-]+)"),
@@ -102,8 +100,6 @@ class SerialReader:
                     self.data.accel = [float(m.group(i)) for i in (1, 2, 3)]
                 elif key == "mag":
                     self.data.mag = [float(m.group(i)) for i in (1, 2, 3)]
-                elif key == "quat":
-                    self.data.quat = [float(m.group(i)) for i in (1, 2, 3, 4)]
                 elif key == "temp":
                     self.data.temperature = float(m.group(1))
                 elif key == "pressure":
@@ -114,28 +110,51 @@ class SerialReader:
 
 
 # ── 3D helpers ─────────────────────────────────────────────────────────────────
-def quat_to_matrix(w, x, y, z):
-    """Quaternion to 4x4 column-major OpenGL rotation matrix.
+def accel_to_matrix(ax, ay, az):
+    """Build a 4x4 column-major OpenGL rotation matrix from accelerometer data.
 
-    Remaps from IMU coordinates (Z-up) to OpenGL coordinates (Y-up):
+    Uses the gravity vector to determine tilt (pitch/roll).  Without a
+    magnetometer fusion step we cannot determine yaw, so heading stays fixed.
+
+    IMU coords (Z-up) -> OpenGL coords (Y-up):
       IMU X -> GL X,  IMU Y -> GL -Z,  IMU Z -> GL Y
     """
-    # Remap quaternion components for coordinate system change
-    x, y, z = x, z, -y
+    # Remap to GL coords
+    gx, gy, gz = ax, az, -ay
 
-    n = math.sqrt(w * w + x * x + y * y + z * z)
-    if n < 1e-10:
+    n = math.sqrt(gx * gx + gy * gy + gz * gz)
+    if n < 1e-6:
         return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-    w, x, y, z = w / n, x / n, y / n, z / n
+    gx, gy, gz = gx / n, gy / n, gz / n
 
-    xx, yy, zz = x * x, y * y, z * z
-    xy, xz, yz = x * y, x * z, y * z
-    wx, wy, wz = w * x, w * y, w * z
+    # "up" direction from gravity
+    up = (gx, gy, gz)
 
+    # Pick a reference forward; if gravity is nearly along Y, use Z instead
+    if abs(gy) > 0.99:
+        ref = (0.0, 0.0, 1.0)
+    else:
+        ref = (0.0, 1.0, 0.0)
+
+    # right = ref x up
+    rx = ref[1] * up[2] - ref[2] * up[1]
+    ry = ref[2] * up[0] - ref[0] * up[2]
+    rz = ref[0] * up[1] - ref[1] * up[0]
+    rn = math.sqrt(rx * rx + ry * ry + rz * rz)
+    if rn < 1e-6:
+        return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    rx, ry, rz = rx / rn, ry / rn, rz / rn
+
+    # forward = up x right
+    fx = up[1] * rz - up[2] * ry
+    fy = up[2] * rx - up[0] * rz
+    fz = up[0] * ry - up[1] * rx
+
+    # Column-major 4x4
     return [
-        1 - 2 * (yy + zz), 2 * (xy + wz), 2 * (xz - wy), 0,
-        2 * (xy - wz), 1 - 2 * (xx + zz), 2 * (yz + wx), 0,
-        2 * (xz + wy), 2 * (yz - wx), 1 - 2 * (xx + yy), 0,
+        rx, ry, rz, 0,
+        up[0], up[1], up[2], 0,
+        fx, fy, fz, 0,
         0, 0, 0, 1,
     ]
 
@@ -312,7 +331,6 @@ def main():
             gyro  = list(data.gyro)
             accel = list(data.accel)
             mag   = list(data.mag)
-            quat  = list(data.quat)
             temp  = data.temperature
             pres  = data.pressure
             alt   = data.altitude
@@ -338,9 +356,9 @@ def main():
         draw_axes()
         glEnable(GL_LIGHTING)
 
-        # Rocket with quaternion rotation
+        # Rocket oriented by accelerometer (gravity tilt)
         glPushMatrix()
-        glMultMatrixf(quat_to_matrix(*quat))
+        glMultMatrixf(accel_to_matrix(*accel))
         draw_rocket()
         glDisable(GL_LIGHTING)
         draw_axes(2.0)
@@ -386,17 +404,9 @@ def main():
                 py += 19
             py += 8
 
-        vec_block("Gyroscope", "deg/s", gyro, ">9.2f")
-        vec_block("Accelerometer", "g", accel, ">9.4f")
+        vec_block("Gyroscope", "rad/s", gyro, ">9.3f")
+        vec_block("Accelerometer", "m/s\u00b2", accel, ">9.3f")
         vec_block("Magnetometer", "uT", mag, ">9.2f")
-
-        # Quaternion
-        draw_text(font_lbl, "Quaternion", (px, py), C_LBL)
-        py += 20
-        for axis, v in zip("WXYZ", quat):
-            draw_text(font_val, f" {axis}: {v:>9.4f}", (px, py), C_VAL)
-            py += 19
-        py += 16
 
         # ── Barometer section ──────────────────────────────────────────────────
         draw_text(font_hdr, "Barometer", (px, py), C_HDR)

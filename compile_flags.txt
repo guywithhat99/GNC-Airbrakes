@@ -22,8 +22,10 @@ arm-none-eabi
 -isystem./teensy4/util
 -isystem./teensy4/debug
 -isystem./libraries
--isystem./libraries/Teensy-ICM-20948
--isystem./libraries/Teensy-ICM-20948/src
+-isystem./libraries/Wire
+-isystem./libraries/Adafruit_ICM20X
+-isystem./libraries/Adafruit_BusIO
+-isystem./libraries/Adafruit_Sensor
 -isystem./libraries/Adafruit_BMP388
 -isystem./tools/compiler/arm-gnu-toolchain/arm-none-eabi/include/c++/14.2.1
 -isystem./tools/compiler/arm-gnu-toolchain/arm-none-eabi/include/c++/14.2.1/arm-none-eabi/thumb/v7e-m+dp/hard
