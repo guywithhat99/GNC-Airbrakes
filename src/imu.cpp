@@ -8,7 +8,7 @@ IMU::IMU() : initialized_(false) {}
 
 IMUConfig IMU::defaultConfig() {
     return IMUConfig{
-        .cs_pin = 24,
+        .cs_pin = 7,
         .spi_speed = 1000000,
         .mode = 1,
         .enable_gyroscope = true,

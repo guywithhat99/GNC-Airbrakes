@@ -13,7 +13,7 @@ Barometer::Barometer()
 
 BarometerConfig Barometer::defaultConfig() {
     return BarometerConfig{
-        .cs_pin = 37,
+        .cs_pin = 33,
         .spi_speed = 1000000,
         .temperature_oversampling = 3,  // BMP3_OVERSAMPLING_8X
         .pressure_oversampling = 2,     // BMP3_OVERSAMPLING_4X
